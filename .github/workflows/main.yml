@@ -117,6 +117,12 @@ on:
        required: true
        default: false
 
+      enable_ytmng:
+       description: "Integrate YTMNGTweaks (hide channel Live tab)"
+       type: boolean
+       required: true
+       default: false
+
       ipa_url:
         description: "URL to the decrypted IPA file"
         default: ""
@@ -168,6 +174,7 @@ jobs:
       enable_pdstm: ${{ inputs.enable_pdstm }}
       enable_youloop: ${{ inputs.enable_youloop }}
       enable_youmute: ${{ inputs.enable_youmute }}
+      enable_ytmng: ${{ inputs.enable_ytmng }}
       tweak_version: ${{ inputs.tweak_version }}
 
 
@@ -180,11 +187,8 @@ jobs:
 
     steps:
       - name: Checkout main branch
-        uses: actions/checkout@v6.0.2       
-        with:
-          repository: Mark02-2012/YTPlusM
-          ref: main
-          
+        uses: actions/checkout@v6.0.2
+
       - name: Download built debs
         uses: actions/download-artifact@v8
         with:
