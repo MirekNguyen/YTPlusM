@@ -123,6 +123,12 @@ on:
        required: true
        default: false
 
+      enable_liquid_glass:
+       description: "Enable Liquid Glass (iOS 26+, experimental)"
+       type: boolean
+       required: true
+       default: false
+
       ipa_url:
         description: "URL to the decrypted IPA file"
         default: ""
@@ -229,6 +235,20 @@ jobs:
           unzip -q youtube.ipa -d ytextracted
           echo "YT_VERSION=$(grep -A 1 '<key>CFBundleVersion</key>' ytextracted/Payload/YouTube.app/Info.plist | grep '<string>' | awk -F'[><]' '{print $3}')" >> $GITHUB_ENV
 
+      # YouTube is built against the iphoneos26.4 SDK but ships with
+      # UIDesignRequiresCompatibility = true, which opts the whole app out of
+      # Liquid Glass. +[M3CLiquidGlass computeIsLiquidGlassAvailable] returns
+      # the logical NOT of this key, so flipping it to false enables both the
+      # UIKit system styling and YouTube's own glass code path.
+      - name: Enable Liquid Glass
+        if: ${{ inputs.enable_liquid_glass }}
+        run: |
+          plist=ytextracted/Payload/YouTube.app/Info.plist
+          echo "before: $(plutil -extract UIDesignRequiresCompatibility raw "$plist" 2>/dev/null || echo '<absent>')"
+          plutil -replace UIDesignRequiresCompatibility -bool false "$plist"
+          (cd ytextracted && zip -q ../youtube.ipa "Payload/YouTube.app/Info.plist")
+          echo "after:  $(plutil -extract UIDesignRequiresCompatibility raw "$plist")"
+
       - name: Determines the Release Title Prefix
         run: |
           if [ "${{ inputs.enable_ytweaks }}" = "false" ] && \
@@ -260,6 +280,20 @@ jobs:
             [ -f "$f" ] && tweaks="$tweaks $f"
           done
           cyan -i youtube.ipa -o ${{ env.RELEASE_PREFIX }}_${{ env.YT_VERSION }}_${{ inputs.tweak_version }}.ipa -uwef $tweaks -n "${{ inputs.display_name }}" -b ${{ inputs.bundle_id }}
+
+      # cyan rewrites Info.plist to set the display name and bundle ID, so
+      # confirm it preserved the Liquid Glass key rather than assuming it did.
+      - name: Verify Liquid Glass key survived injection
+        if: ${{ inputs.enable_liquid_glass }}
+        run: |
+          out=${{ env.RELEASE_PREFIX }}_${{ env.YT_VERSION }}_${{ inputs.tweak_version }}.ipa
+          rm -rf verify && unzip -q -o "$out" "Payload/YouTube.app/Info.plist" -d verify
+          value=$(plutil -extract UIDesignRequiresCompatibility raw verify/Payload/YouTube.app/Info.plist 2>/dev/null || echo "absent")
+          echo "UIDesignRequiresCompatibility in output IPA: $value"
+          if [ "$value" != "false" ] && [ "$value" != "absent" ]; then
+            echo "::error::Liquid Glass patch was lost during injection (value: $value)."
+            exit 1
+          fi
   
       - name: Prepare Releases Notes
         run: |
