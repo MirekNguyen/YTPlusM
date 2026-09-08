@@ -19,9 +19,9 @@ on:
   workflow_dispatch:
     inputs:
       ipa_url:
-        description: "Decrypted YouTube IPA (defaults to the ytplusm-assets release asset)"
-        default: "https://github.com/MirekNguyen/ytplusm-assets/releases/download/youtube-21.33.6/com.google.ios.youtube_21.33.6_und3fined.ipa"
-        required: true
+        description: "Decrypted YouTube IPA (leave blank to use the latest ytplusm-assets release)"
+        default: ""
+        required: false
       tweak_version:
         description: "YouTube Plus version to build on top of"
         default: "5.2.2"
@@ -137,10 +137,35 @@ jobs:
           mv *.appex ..
 
       # The base IPA is 145 MB and changes only when the YouTube version does,
-      # so key the cache on the URL and skip the download on every rerun.
-      # Cache keys cannot hold a raw URL (`,` is a key separator), so hash it.
-      - name: Compute IPA cache key
-        run: echo "IPA_KEY=$(printf '%s' '${{ inputs.ipa_url }}' | shasum -a 256 | cut -c1-32)" >> $GITHUB_ENV
+      # so cache it and skip the download on every rerun.
+      #
+      # Resolving the asset instead of taking a URL is not just convenience: a
+      # private repo's browser download URL (/releases/download/...) 404s even
+      # with a valid token. Only the API asset URL serves the bytes, and that
+      # needs the numeric asset ID, which is exactly the thing nobody wants to
+      # paste by hand. So ask the API for the latest release and read it off.
+      - name: Resolve IPA source
+        env:
+          IPA_URL: ${{ inputs.ipa_url }}
+          IPA_TOKEN: ${{ secrets.IPA_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "$IPA_URL" ]; then
+            echo "IPA_DL=$IPA_URL" >> $GITHUB_ENV
+            echo "IPA_KEY=$(printf '%s' "$IPA_URL" | shasum -a 256 | cut -c1-32)" >> $GITHUB_ENV
+            exit 0
+          fi
+          if [ -z "$IPA_TOKEN" ]; then
+            echo "::error::IPA_TOKEN is required to resolve the private assets release."
+            exit 1
+          fi
+          release=$(curl -fsSL -H "Authorization: Bearer $IPA_TOKEN" \
+            https://api.github.com/repos/MirekNguyen/ytplusm-assets/releases/latest)
+          asset_id=$(echo "$release" | python3 -c \
+            "import json,sys; print(next(a['id'] for a in json.load(sys.stdin)['assets'] if a['name'].endswith('.ipa')))")
+          echo "Resolved asset $asset_id from $(echo "$release" | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')"
+          echo "IPA_DL=https://api.github.com/repos/MirekNguyen/ytplusm-assets/releases/assets/$asset_id" >> $GITHUB_ENV
+          echo "IPA_KEY=asset-$asset_id" >> $GITHUB_ENV
 
       - name: Cache base IPA
         id: ipa
@@ -152,20 +177,18 @@ jobs:
       - name: Download IPA
         if: steps.ipa.outputs.cache-hit != 'true'
         env:
-          IPA_URL: ${{ inputs.ipa_url }}
           IPA_TOKEN: ${{ secrets.IPA_TOKEN }}
         run: |
           mkdir -p ipa-cache
-          # ytplusm-assets is private, so the asset needs an auth header. Without
-          # the secret this falls back to an unauthenticated download, which
-          # only works for a public URL.
+          # Accept: application/octet-stream is what makes the API return the
+          # bytes rather than the asset's JSON metadata.
           if [ -n "$IPA_TOKEN" ]; then
             curl -fL --retry 3 --retry-delay 5 \
               -H "Authorization: Bearer $IPA_TOKEN" \
               -H "Accept: application/octet-stream" \
-              "$IPA_URL" -o ipa-cache/youtube.ipa
+              "$IPA_DL" -o ipa-cache/youtube.ipa
           else
-            curl -fL --retry 3 --retry-delay 5 "$IPA_URL" -o ipa-cache/youtube.ipa
+            curl -fL --retry 3 --retry-delay 5 "$IPA_DL" -o ipa-cache/youtube.ipa
           fi
 
       # The Liquid Glass step rewrites the IPA in place, so work on a copy and
