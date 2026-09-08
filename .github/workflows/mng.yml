@@ -233,8 +233,13 @@ jobs:
       - name: Inject tweaks
         run: |
           set -euo pipefail
-          echo "OUT_IPA=YTMNG_${YT_VERSION}_${{ inputs.tweak_version }}.ipa" >> $GITHUB_ENV
-          cyan -i youtube.ipa -o "YTMNG_${YT_VERSION}_${{ inputs.tweak_version }}.ipa" -uwef \
+          # Named for the two versions that actually identify the build: the
+          # YouTube it is based on and the YTMNGTweaks release inside it. The
+          # YouTube Plus version was neither, and left two different builds of
+          # ours sharing a filename.
+          out="YTMNG_${YT_VERSION}_v${MNG_VERSION}.ipa"
+          echo "OUT_IPA=$out" >> $GITHUB_ENV
+          cyan -i youtube.ipa -o "$out" -uwef \
             ytplus.deb OpenYoutubeSafariExtension.appex \
             ytmngtweaks.deb ygs.deb ryd.deb \
             -n "${{ inputs.display_name }}" -b "${{ inputs.bundle_id }}"
