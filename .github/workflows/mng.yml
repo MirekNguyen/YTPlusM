@@ -1,9 +1,9 @@
-# Mirek's build. One job, four tweaks, no toggles.
+# Mirek's build. One job, a fixed tweak set, no toggles.
 #
 # main.yml is the upstream workflow: ~20 opt-in tweaks split across a
 # workflow_call helper and a packaging job, with the debs shuttled between them
 # as an artifact. That is the right shape when the tweak set is a question. It
-# is not, here -- the answer is always the same four -- so this trades all of
+# is not, here -- the answer is always the same -- so this trades all of
 # that for one job:
 #
 #   * no artifact upload/download round trip between jobs
@@ -107,7 +107,16 @@ jobs:
           git clone --quiet --depth=1 https://github.com/MirekNguyen/YTMNGTweaks.git
           git clone --quiet --depth=1 https://github.com/MirekNguyen/Return-YouTube-Dislikes.git
           git clone --quiet --depth=1 https://github.com/PoomSmart/YouGroupSettings.git
-          git clone --quiet --depth=1 https://github.com/fosterbarnes/YTweaks.git
+
+      # The tweak's own control file is the single source of truth for the
+      # version, so the release is named after what actually shipped rather than
+      # a number maintained separately in the workflow.
+      - name: Read tweak version
+        run: |
+          set -euo pipefail
+          version=$(awk -F': ' '/^Version:/ {print $2}' YTMNGTweaks/control | tr -d '[:space:]')
+          echo "MNG_VERSION=$version" >> $GITHUB_ENV
+          echo "YTMNGTweaks version: $version"
 
       - name: Build tweaks
         run: |
@@ -121,7 +130,6 @@ jobs:
           build YTMNGTweaks              ytmngtweaks.deb
           build YouGroupSettings         ygs.deb
           build Return-YouTube-Dislikes  ryd.deb
-          build YTweaks                  ytweaks.deb
 
       - name: Download YouTube Plus base tweak
         run: |
@@ -228,7 +236,7 @@ jobs:
           echo "OUT_IPA=YTMNG_${YT_VERSION}_${{ inputs.tweak_version }}.ipa" >> $GITHUB_ENV
           cyan -i youtube.ipa -o "YTMNG_${YT_VERSION}_${{ inputs.tweak_version }}.ipa" -uwef \
             ytplus.deb OpenYoutubeSafariExtension.appex \
-            ytmngtweaks.deb ygs.deb ryd.deb ytweaks.deb \
+            ytmngtweaks.deb ygs.deb ryd.deb \
             -n "${{ inputs.display_name }}" -b "${{ inputs.bundle_id }}"
 
       # cyan rewrites Info.plist to set the display name and bundle ID, so
@@ -249,7 +257,7 @@ jobs:
           # TWEAK_NAMEs (what the dylib is called), not repo names -- RYD's
           # repo is Return-YouTube-Dislikes but its dylib is
           # YouTubeDislikesReturn.
-          for dylib in YTMNGTweaks YouTubeDislikesReturn YTweaks; do
+          for dylib in YTMNGTweaks YouTubeDislikesReturn YouGroupSettings; do
             if ! unzip -l "$OUT_IPA" | grep -qi "$dylib"; then
               echo "::error::$dylib is missing from the output IPA."
               exit 1
@@ -260,11 +268,15 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: mng-${{ env.YT_VERSION }}-${{ github.run_number }}
-          name: YTMNG ${{ env.YT_VERSION }} (build ${{ github.run_number }})
+          # Semver, with the build number as semver build metadata so reruns do
+          # not collide on a tag. The version comes from YTMNGTweaks/control.
+          tag_name: v${{ env.MNG_VERSION }}+build.${{ github.run_number }}
+          name: v${{ env.MNG_VERSION }} — YouTube ${{ env.YT_VERSION }}
           body: |
-            YouTube ${{ env.YT_VERSION }} + YouTube Plus ${{ inputs.tweak_version }}.
+            **YTMNGTweaks v${{ env.MNG_VERSION }}** on YouTube ${{ env.YT_VERSION }}
+            (YouTube Plus ${{ inputs.tweak_version }}).
 
-            Bundled: YTMNGTweaks, Return YouTube Dislike (fork), YTweaks, Liquid Glass patch.
+            Bundled: YTMNGTweaks, Return YouTube Dislike (fork), YouGroupSettings,
+            Liquid Glass patch.
           files: ${{ env.OUT_IPA }}
           draft: true
