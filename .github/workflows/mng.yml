@@ -245,8 +245,11 @@ jobs:
             exit 1
           fi
           # A tweak that silently failed to inject is the failure mode worth
-          # catching here: the IPA still builds and still installs.
-          for dylib in YTMNGTweaks Return-YouTube-Dislikes YTweaks; do
+          # catching here: the IPA still builds and still installs. These are
+          # TWEAK_NAMEs (what the dylib is called), not repo names -- RYD's
+          # repo is Return-YouTube-Dislikes but its dylib is
+          # YouTubeDislikesReturn.
+          for dylib in YTMNGTweaks YouTubeDislikesReturn YTweaks; do
             if ! unzip -l "$OUT_IPA" | grep -qi "$dylib"; then
               echo "::error::$dylib is missing from the output IPA."
               exit 1
