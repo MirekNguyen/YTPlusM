@@ -1,0 +1,244 @@
+# Mirek's build. One job, four tweaks, no toggles.
+#
+# main.yml is the upstream workflow: ~20 opt-in tweaks split across a
+# workflow_call helper and a packaging job, with the debs shuttled between them
+# as an artifact. That is the right shape when the tweak set is a question. It
+# is not, here -- the answer is always the same four -- so this trades all of
+# that for one job:
+#
+#   * no artifact upload/download round trip between jobs
+#   * no second runner boot
+#   * one cache covering theos, the SDK and both header repos
+#   * the base IPA cached by URL, so reruns skip the 145 MB download
+#   * Liquid Glass always on, ipa_url defaulted, nothing to fill in
+#
+# Everything it builds is pinned to a repo we control or upstream `main`.
+name: Build (MNG)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ipa_url:
+        description: "Decrypted YouTube IPA (defaults to the ytplusm-assets release asset)"
+        default: "https://github.com/MirekNguyen/ytplusm-assets/releases/download/youtube-21.33.6/com.google.ios.youtube_21.33.6_und3fined.ipa"
+        required: true
+      tweak_version:
+        description: "YouTube Plus version to build on top of"
+        default: "5.2.2"
+        required: true
+      display_name:
+        description: "App display name"
+        default: "YouTube"
+        required: true
+      bundle_id:
+        description: "Bundle identifier"
+        default: "com.google.ios.youtube"
+        required: true
+
+concurrency:
+  group: mng-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  THEOS: ${{ github.workspace }}/theos
+  THEOS_REF: 9bc73406cf80b711ef4d02c15ff1dedc4478a275
+
+jobs:
+  build:
+    name: Build and package
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: brew install make ldid dpkg
+
+      - name: Set PATH
+        run: echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
+
+      # theos, the iPhoneOS SDK and both header repos live under $THEOS, so one
+      # cache entry covers the whole toolchain instead of the three separate
+      # clone-or-pull steps upstream runs on every build.
+      - name: Cache toolchain
+        id: toolchain
+        uses: actions/cache@v5
+        with:
+          path: theos/
+          key: mng-theos-${{ env.THEOS_REF }}-sdk16.5-v1
+
+      - name: Checkout theos
+        if: steps.toolchain.outputs.cache-hit != 'true'
+        uses: actions/checkout@v6
+        with:
+          repository: theos/theos
+          ref: 9bc73406cf80b711ef4d02c15ff1dedc4478a275
+          path: theos
+          submodules: recursive
+
+      - name: Install SDK and headers
+        if: steps.toolchain.outputs.cache-hit != 'true'
+        run: |
+          git clone --quiet -n --depth=1 --filter=tree:0 https://github.com/theos/sdks/
+          cd sdks
+          git sparse-checkout set --no-cone iPhoneOS16.5.sdk
+          git checkout
+          mv *.sdk "$THEOS/sdks"
+          cd "$THEOS/include"
+          git clone --quiet --depth=1 https://github.com/PoomSmart/YouTubeHeader.git
+          git clone --quiet --depth=1 https://github.com/PoomSmart/PSHeader.git
+
+      # Cached headers go stale against a moving YouTube; refreshing is a couple
+      # of seconds and avoids a mystery build failure months from now.
+      - name: Refresh headers
+        if: steps.toolchain.outputs.cache-hit == 'true'
+        run: |
+          git -C "$THEOS/include/YouTubeHeader" pull --quiet --ff-only || true
+          git -C "$THEOS/include/PSHeader" pull --quiet --ff-only || true
+
+      - name: Clone tweaks
+        run: |
+          set -euo pipefail
+          # YouGroupSettings is not a feature, it is a dependency: RYD registers
+          # its settings section through it.
+          git clone --quiet --depth=1 https://github.com/MirekNguyen/YTMNGTweaks.git
+          git clone --quiet --depth=1 https://github.com/MirekNguyen/Return-YouTube-Dislikes.git
+          git clone --quiet --depth=1 https://github.com/PoomSmart/YouGroupSettings.git
+          git clone --quiet --depth=1 https://github.com/fosterbarnes/YTweaks.git
+
+      - name: Build tweaks
+        run: |
+          set -euo pipefail
+          build() {
+            echo "::group::$1"
+            make -C "$1" clean package DEBUG=0 FINALPACKAGE=1
+            mv "$1"/packages/*.deb "$2"
+            echo "::endgroup::"
+          }
+          build YTMNGTweaks              ytmngtweaks.deb
+          build YouGroupSettings         ygs.deb
+          build Return-YouTube-Dislikes  ryd.deb
+          build YTweaks                  ytweaks.deb
+
+      - name: Download YouTube Plus base tweak
+        run: |
+          curl -fL --retry 3 --retry-delay 5 -o ytplus.deb \
+            "https://github.com/Mark02-2012/YTPlusM/releases/download/YTPlusVersions/com.dvntm.ytlite_${{ inputs.tweak_version }}_iphoneos-arm.deb"
+
+      - name: Download Safari extension
+        run: |
+          git clone --quiet -n --depth=1 --filter=tree:0 https://github.com/BillyCurtis/OpenYouTubeSafariExtension
+          cd OpenYoutubeSafariExtension
+          git sparse-checkout set --no-cone OpenYoutubeSafariExtension.appex
+          git checkout
+          mv *.appex ..
+
+      # The base IPA is 145 MB and changes only when the YouTube version does,
+      # so key the cache on the URL and skip the download on every rerun.
+      # Cache keys cannot hold a raw URL (`,` is a key separator), so hash it.
+      - name: Compute IPA cache key
+        run: echo "IPA_KEY=$(printf '%s' '${{ inputs.ipa_url }}' | shasum -a 256 | cut -c1-32)" >> $GITHUB_ENV
+
+      - name: Cache base IPA
+        id: ipa
+        uses: actions/cache@v5
+        with:
+          path: ipa-cache
+          key: mng-ipa-${{ env.IPA_KEY }}
+
+      - name: Download IPA
+        if: steps.ipa.outputs.cache-hit != 'true'
+        env:
+          IPA_URL: ${{ inputs.ipa_url }}
+          IPA_TOKEN: ${{ secrets.IPA_TOKEN }}
+        run: |
+          mkdir -p ipa-cache
+          # ytplusm-assets is private, so the asset needs an auth header. Without
+          # the secret this falls back to an unauthenticated download, which
+          # only works for a public URL.
+          if [ -n "$IPA_TOKEN" ]; then
+            curl -fL --retry 3 --retry-delay 5 \
+              -H "Authorization: Bearer $IPA_TOKEN" \
+              -H "Accept: application/octet-stream" \
+              "$IPA_URL" -o ipa-cache/youtube.ipa
+          else
+            curl -fL --retry 3 --retry-delay 5 "$IPA_URL" -o ipa-cache/youtube.ipa
+          fi
+
+      # The Liquid Glass step rewrites the IPA in place, so work on a copy and
+      # leave the cached original untouched.
+      - name: Validate IPA
+        run: |
+          cp ipa-cache/youtube.ipa youtube.ipa
+          file_type=$(file --mime-type -b youtube.ipa)
+          if [[ "$file_type" != "application/x-ios-app" && "$file_type" != "application/zip" ]]; then
+            echo "::error::Not a valid IPA. Detected type: $file_type."
+            exit 1
+          fi
+
+      # YouTube is built against the iphoneos26.4 SDK but ships with
+      # UIDesignRequiresCompatibility = true, which opts the whole app out of
+      # Liquid Glass. +[M3CLiquidGlass computeIsLiquidGlassAvailable] returns
+      # the logical NOT of this key, so flipping it to false enables both the
+      # UIKit system styling and YouTube's own glass code path. YTMNGTweaks'
+      # LiquidGlass.x depends on this, so it is unconditional here.
+      - name: Read version and enable Liquid Glass
+        run: |
+          set -euo pipefail
+          rm -rf ytextracted
+          unzip -q youtube.ipa -d ytextracted
+          plist=ytextracted/Payload/YouTube.app/Info.plist
+          echo "YT_VERSION=$(plutil -extract CFBundleVersion raw "$plist")" >> $GITHUB_ENV
+          plutil -replace UIDesignRequiresCompatibility -bool false "$plist"
+          (cd ytextracted && zip -q ../youtube.ipa "Payload/YouTube.app/Info.plist")
+          echo "UIDesignRequiresCompatibility -> $(plutil -extract UIDesignRequiresCompatibility raw "$plist")"
+
+      - name: Install cyan
+        run: pipx install --force https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip
+
+      - name: Inject tweaks
+        run: |
+          set -euo pipefail
+          echo "OUT_IPA=YTMNG_${YT_VERSION}_${{ inputs.tweak_version }}.ipa" >> $GITHUB_ENV
+          cyan -i youtube.ipa -o "YTMNG_${YT_VERSION}_${{ inputs.tweak_version }}.ipa" -uwef \
+            ytplus.deb OpenYoutubeSafariExtension.appex \
+            ytmngtweaks.deb ygs.deb ryd.deb ytweaks.deb \
+            -n "${{ inputs.display_name }}" -b "${{ inputs.bundle_id }}"
+
+      # cyan rewrites Info.plist to set the display name and bundle ID, so
+      # confirm it preserved the Liquid Glass key rather than assuming it did.
+      - name: Verify output
+        run: |
+          set -euo pipefail
+          rm -rf verify
+          unzip -q -o "$OUT_IPA" "Payload/YouTube.app/Info.plist" -d verify
+          value=$(plutil -extract UIDesignRequiresCompatibility raw verify/Payload/YouTube.app/Info.plist)
+          echo "UIDesignRequiresCompatibility in output IPA: $value"
+          if [ "$value" != "false" ]; then
+            echo "::error::Liquid Glass patch was lost during injection (value: $value)."
+            exit 1
+          fi
+          # A tweak that silently failed to inject is the failure mode worth
+          # catching here: the IPA still builds and still installs.
+          for dylib in YTMNGTweaks Return-YouTube-Dislikes YTweaks; do
+            if ! unzip -l "$OUT_IPA" | grep -qi "$dylib"; then
+              echo "::error::$dylib is missing from the output IPA."
+              exit 1
+            fi
+          done
+          ls -lh "$OUT_IPA"
+
+      - name: Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: mng-${{ env.YT_VERSION }}-${{ github.run_number }}
+          name: YTMNG ${{ env.YT_VERSION }} (build ${{ github.run_number }})
+          body: |
+            YouTube ${{ env.YT_VERSION }} + YouTube Plus ${{ inputs.tweak_version }}.
+
+            Bundled: YTMNGTweaks, Return YouTube Dislike (fork), YTweaks, Liquid Glass patch.
+          files: ${{ env.OUT_IPA }}
+          draft: true
