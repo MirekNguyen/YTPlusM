@@ -23,8 +23,12 @@ on:
         default: ""
         required: false
       tweak_version:
-        description: "YouTube Plus version to build on top of (upstream offers 5.1 to 6.0b1)"
-        default: "5.2.2"
+        # Pinned rather than resolved at build time: the release name records
+        # which YouTube Plus went in, and a silently-moving base tweak would
+        # make two builds of the same YTMNGTweaks version not comparable.
+        # Published versions: 5.1, 5.2b1-b4, 5.2.1, 5.2.2, 6.0b1.
+        description: "YouTube Plus version to build on top of"
+        default: "6.0b1"
         required: true
       display_name:
         description: "App display name"
