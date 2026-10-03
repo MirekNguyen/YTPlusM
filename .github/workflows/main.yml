@@ -99,12 +99,6 @@ on:
        required: true
        default: false
 
-      enable_pdstm:
-       description: "Integrate PleaseDontStopTheMusic (MaxTube)"
-       type: boolean
-       required: true
-       default: false
-
       enable_youloop:
        description: "NEW! Integrate YouLoop (MaxTube)"
        type: boolean
@@ -136,8 +130,8 @@ on:
         type: string
 
       tweak_version:
-        description: "The version of the tweak to use. Versions that you can use are from 5.1 to 5.2.2 (no 5.2)"
-        default: "5.2.2"
+        description: "The version of the tweak to use. Versions that you can use are from 5.1 to 6.0b1 (no 5.2)"
+        default: "6.0b1"
         required: true
         type: string
 
@@ -177,7 +171,6 @@ jobs:
       enable_ytpfBETA: ${{ inputs.enable_ytpfBETA }}
       enable_ycq: ${{ inputs.enable_ycq }}
       enable_ys: ${{ inputs.enable_ys }}
-      enable_pdstm: ${{ inputs.enable_pdstm }}
       enable_youloop: ${{ inputs.enable_youloop }}
       enable_youmute: ${{ inputs.enable_youmute }}
       enable_ytmng: ${{ inputs.enable_ytmng }}
@@ -193,8 +186,11 @@ jobs:
 
     steps:
       - name: Checkout main branch
-        uses: actions/checkout@v6.0.2
-
+        uses: actions/checkout@v6.0.2       
+        with:
+          repository: Mark02-2012/MaxTube 
+          ref: main
+          
       - name: Download built debs
         uses: actions/download-artifact@v8
         with:
@@ -260,7 +256,6 @@ jobs:
              [ "${{ inputs.enable_ytpf }}" = "false" ] && \
              [ "${{ inputs.enable_ycq }}" = "false" ] && \
              [ "${{ inputs.enable_ys }}" = "false" ] && \
-             [ "${{ inputs.enable_pdstm }}" = "false" ] && \
              [ "${{ inputs.enable_youloop }}" = "false" ] && \
              [ "${{ inputs.enable_youmute }}" = "false" ] && \
              [ "${{ inputs.enable_ytpfBETA }}" = "false" ]; then

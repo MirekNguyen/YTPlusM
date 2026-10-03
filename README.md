@@ -180,7 +180,7 @@ Review by [@qbap](https://github.com/qbap) on ONE Jailbreak: https://onejailbrea
 ## What Means MaxTube and YTPlusM DIY
 <details>
  <summary><strong>MaxTube</strong></summary>
-<p><strong>MaxTube</strong> is my fork of <a href="https://github.com/dayanch96/YTLite">YTPlus/YTLite</a> that has <strong>ten more tweaks integrated</strong> (<a href="https://github.com/fosterbarnes/YTweaks">YTweaks</a>, <a href="https://github.com/castdrian/Gonerino">Gonerino</a>, <a href="https://github.com/PoomSmart/YouSpeed">YouSpeed</a>, <a href="https://github.com/arichornlover/YTLowContrastMode">YTLowContrastMode</a>, <a href="https://github.com/VasirakCalgux/VolumeBoostYT">VolumeBoostYT</a>, <a href="https://github.com/PoomSmart/YouGetCaption">YouGetCaption</a>, my tweak <a href="https://github.com/Mark02-2012/YTPlaybackFix">YTPlaybackFix</a>, <a href="https://github.com/PoomSmart/YouChooseQuality">YouChooseQuality</a>, <a href="https://github.com/Tonwalter888/YouShare">YouShare</a> and <a href="https://github.com/mikey820/PleaseDontStopTheMusic">PleaseDontStopTheMusic</a>) + YTPlus/YTLite without subscription required. <strong>YTPlus releases will not have those extra tweaks, but only YTPlus/YTLite YouPiP, YTUHD, Return-YouTube-Dislikes, YouQuality, DontEatMyContent and YTABConfig.</strong>
+<p><strong>MaxTube</strong> is my fork of <a href="https://github.com/dayanch96/YTLite">YTPlus/YTLite</a> that has <strong>eleven more tweaks integrated</strong> (<a href="https://github.com/fosterbarnes/YTweaks">YTweaks</a>, <a href="https://github.com/castdrian/Gonerino">Gonerino</a>, <a href="https://github.com/PoomSmart/YouSpeed">YouSpeed</a>, <a href="https://github.com/arichornlover/YTLowContrastMode">YTLowContrastMode</a>, <a href="https://github.com/VasirakCalgux/VolumeBoostYT">VolumeBoostYT</a>, <a href="https://github.com/PoomSmart/YouGetCaption">YouGetCaption</a>, my tweak <a href="https://github.com/Mark02-2012/YTPlaybackFix">YTPlaybackFix</a>, <a href="https://github.com/PoomSmart/YouChooseQuality">YouChooseQuality</a>, <a href="https://github.com/Tonwalter888/YouShare">YouShare</a>, <a href="https://github.com/bhackel/YouLoop">YouLoop</a> and <a href="https://github.com/PoomSmart/YouMute">YouMute</a>) + YTPlus/YTLite without subscription required. <strong>YTPlus releases will not have those extra tweaks, but only YTPlus/YTLite YouPiP, YTUHD, Return-YouTube-Dislikes, YouQuality, DontEatMyContent and YTABConfig.</strong>
 
 <strong>But why the old name was "YTPlusM"?</strong>
 Well, the original project is named <a href="https://github.com/dayanch96/YTLite">YTPlus</a>, so since my fork provides more advantages, I wanted to add an "M" to indicate that it's YTPlus, but improved by me, Mark02.
@@ -210,6 +210,7 @@ Updated YouTube Plus from 5.2.1 to 5.2.2; cracked by <a href="https://www.reddit
 <li><strong>1.5 (August 24 2026):</strong></li>
 • Changed name from YTPlusM to MaxTube
 
+
 • Fixed YTLowContrastMode setting section not showing in 20.x versions.
 
 • Added YouLoop and YouMute (in Video Overlay settings).
@@ -217,6 +218,25 @@ Updated YouTube Plus from 5.2.1 to 5.2.2; cracked by <a href="https://www.reddit
 • Replaced Gonerino by castdrian with the fork YGonerino by fosterbarnes.
 
 • Updated my tweak YTPlaybackFix. It is now a combination of my method (refreshing the video player when it detects the error; fixed the loop issue, incompatibility with 20.x versions of YouTube, added support for error code 0, and incompatibility with RootHide Patcher) and the method by @AppropriateNet_2928 named YouFixPlaybackIssues (spoof client and experimental PoToken bypass). Includes a setting section to enable/disable each method. Both are enabled by default.
+<li><strong>1.5.3 (August 30 2026):</strong></li>
+Replaced VolumeBoostYT by irum0320 with the fork by candyzp
+<li><strong>1.5.4 (September 1 2026):</strong></li>
+Returned to the original VolumeBoostYT tweak because the fork used in MaxTube 1.5.3 was buggy.
+<li><strong>1.6 (September 12 2026):</strong></li>
+• Updated YTPlaybackFix (specifically Spoof Client method, now spoofs to TV Simply client as Android VR is now broken and has buffers)
+
+
+• Using again the fork of VolumeBoostYT by candyzp because he fixed a lot of issues
+
+• Removed PleaseDontStopTheMusic because it caused issues with calls and audio
+
+<li><strong>1.6.2 (September 14 2026):</strong></li>
+• Fixed Gonerino lag issue in playlists
+
+<li><strong>1.7 (September 26 2026):</strong></li>
+• Updated YTPlus to version 6.0b1
+
+• My tweak YTPlaybackFix will not be in my prebulit IPAs anymore, as YTPlus now has its own and seems better, and also Gonerino will not be anymore in my pre-compiled IPAs, because it caused issues, but if you want them you can build an IPA by yourself with them with GitHub Actions
 
 ## Supported YouTube Version
 <ul>
@@ -327,8 +347,8 @@ Updated YouTube Plus from 5.2.1 to 5.2.2; cracked by <a href="https://www.reddit
 
 <details>
  <summary>YTPlaybackFix (only in MaxTube versions)</summary>
- <p>YTPlaybackFix is a tweak developed by me that try to fix playback issues by refreshing the video every time the error 14 appears ("something went wrong")</p>
- <p><strong>YTPlaybackFix preferences</strong> for the moment are <strong>not available</strong> as the tweak will refresh videos only if the error appears.</p>
+ <p>YTPlaybackFix is a tweak developed by me that try to fix playback issues by using my method (refreshing the video every time the error 14 and 0 appears "something went wrong") and YouFixPlaybackIssues by @AppropriateNet2928</p>
+ <p><strong>YTPlaybackFix preferences</strong> are available in the <strong>YouTube settings</strong></p>
  <p>Source code and additional information are available <a href="https://github.com/Mark02-2012/YTPlaybackFix">in my repository</a>.</p>
 </details>
 
@@ -344,13 +364,6 @@ Updated YouTube Plus from 5.2.1 to 5.2.2; cracked by <a href="https://www.reddit
  <p>YouShare is a tweak developed by <a href="https://github.com/PoomSmart">PoomSmart</a> (but I'm using <a href="https://github.com/Tonwalter888/YouShare">this fork</a> by <a href="https://github.com/Tonwalter888">TonWalter888</a>) that allows you to share videos faster in iOS YouTube app.</p>
  <p><strong>YouShare preferences</strong> are available in the <strong>Video Overlay</strong> section under <strong>YouTube settings</strong>.</p>
  <p>Source code and additional information are available <a href="https://github.com/Tonwalter888/YouShare">in Tonwalter888's repository</a>.</p>
-</details>
-
-<details>
- <summary>PleaseDontStopTheMusic (only in MaxTube versions)</summary>
- <p>PleaseDontStopTheMusic is a tweak developed by <a href="https://github.com/mikey820">mikey820</a> that prevents apps (e.g. Roblox) from pausing your background music.</p>
- <p><strong>PleaseDontStopTheMusic preferences</strong> are not available.</p>
- <p>Source code and additional information are available <a href="https://github.com/mikey820/PleaseDontStopTheMusic">in mikey820's repository</a>.</p>
 </details>
 
 <details>
@@ -390,11 +403,10 @@ This project is alive also thanks to those fantastic guys:
 <a href="https://github.com/castdrian">castdrian</a>: **creator of Gonerino**
 
 
-<a href="https://github.com/VasirakCalgux">VasirakCalgux</a>: **creator of VolumeBoostYT**
+<a href="https://github.com/irum0320">irum0320</a>: **creator of VolumeBoostYT**
 
-
-<a href="https://github.com/mikey820">mikey820</a>: **creator of PleaseDontStopTheMusic**
 
 <a href="https://github.com/bhackel">bhackel</a>: **creator of YouLoop**
+
 
 <a href="https://github.com/AppropriateNet2928">AppropriateNet2928</a>: **creator of YouFixPlaybackIssues, the other method used by my YTPlaybackFix**

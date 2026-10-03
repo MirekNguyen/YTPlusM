@@ -23,7 +23,7 @@ on:
         default: ""
         required: false
       tweak_version:
-        description: "YouTube Plus version to build on top of"
+        description: "YouTube Plus version to build on top of (upstream offers 5.1 to 6.0b1)"
         default: "5.2.2"
         required: true
       display_name:
@@ -134,7 +134,7 @@ jobs:
       - name: Download YouTube Plus base tweak
         run: |
           curl -fL --retry 3 --retry-delay 5 -o ytplus.deb \
-            "https://github.com/Mark02-2012/YTPlusM/releases/download/YTPlusVersions/com.dvntm.ytlite_${{ inputs.tweak_version }}_iphoneos-arm.deb"
+            "https://github.com/Mark02-2012/MaxTube/releases/download/YTPlusVersions/com.dvntm.ytlite_${{ inputs.tweak_version }}_iphoneos-arm.deb"
 
       - name: Download Safari extension
         run: |
