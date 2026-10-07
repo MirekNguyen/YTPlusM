@@ -23,13 +23,14 @@ on:
         default: ""
         required: false
       tweak_version:
-        # Pinned rather than resolved at build time: the release name records
-        # which YouTube Plus went in, and a silently-moving base tweak would
-        # make two builds of the same YTMNGTweaks version not comparable.
-        # Published versions: 5.1, 5.2b1-b4, 5.2.1, 5.2.2, 6.0b1.
-        description: "YouTube Plus version to build on top of"
-        default: "6.0b1"
-        required: true
+        # Blank = the newest YouTube Plus published on Mark02-2012/MaxTube,
+        # resolved at build time, so a new release is picked up without
+        # editing this file. Type a version (e.g. 5.2.2) to pin one instead.
+        # The resolved version is written into the release notes, so builds
+        # stay comparable even though the default moves.
+        description: "YouTube Plus version (blank = latest)"
+        default: ""
+        required: false
       display_name:
         description: "App display name"
         default: "YouTube"
@@ -135,10 +136,47 @@ jobs:
           build YouGroupSettings         ygs.deb
           build Return-YouTube-Dislikes  ryd.deb
 
+      # "Latest" means highest version, not most recently uploaded: the assets
+      # all carry the same upload date when upstream re-publishes, so the
+      # timestamp says nothing. Betas sort below their release (6.0b2 < 6.0),
+      # matching how the version numbers are meant to be read.
+      - name: Resolve YouTube Plus version
+        env:
+          PINNED: ${{ inputs.tweak_version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -n "$PINNED" ]; then
+            version="$PINNED"
+          else
+            # Public repo: auth is only there to lift the anonymous rate limit,
+            # and an empty "Bearer" header is rejected outright, so only send
+            # it when there is a token.
+            auth=()
+            [ -n "$GH_TOKEN" ] && auth=(-H "Authorization: Bearer $GH_TOKEN")
+            version=$(curl -fsSL "${auth[@]}" \
+              https://api.github.com/repos/Mark02-2012/MaxTube/releases/tags/YTPlusVersions \
+              | python3 -c '
+          import json, re, sys
+          def key(v):
+              m = re.fullmatch(r"([\d.]+?)(?:b(\d+))?", v)
+              nums = [int(x) for x in m.group(1).split(".")]
+              beta = m.group(2)
+              return (nums, 0 if beta else 1, int(beta or 0))
+          names = [a["name"] for a in json.load(sys.stdin)["assets"]]
+          versions = [m.group(1) for n in names
+                      if (m := re.fullmatch(r"com\.dvntm\.ytlite_(.+)_iphoneos-arm\.deb", n))]
+          print(max(versions, key=key))
+          ')
+          fi
+          echo "YTPLUS_VERSION=$version" >> $GITHUB_ENV
+          if [ -n "$PINNED" ]; then source=pinned; else source=latest; fi
+          echo "YouTube Plus: $version ($source)"
+
       - name: Download YouTube Plus base tweak
         run: |
           curl -fL --retry 3 --retry-delay 5 -o ytplus.deb \
-            "https://github.com/Mark02-2012/MaxTube/releases/download/YTPlusVersions/com.dvntm.ytlite_${{ inputs.tweak_version }}_iphoneos-arm.deb"
+            "https://github.com/Mark02-2012/MaxTube/releases/download/YTPlusVersions/com.dvntm.ytlite_${YTPLUS_VERSION}_iphoneos-arm.deb"
 
       - name: Download Safari extension
         run: |
@@ -283,7 +321,7 @@ jobs:
           name: v${{ env.MNG_VERSION }} — YouTube ${{ env.YT_VERSION }}
           body: |
             **YTMNGTweaks v${{ env.MNG_VERSION }}** on YouTube ${{ env.YT_VERSION }}
-            (YouTube Plus ${{ inputs.tweak_version }}).
+            (YouTube Plus ${{ env.YTPLUS_VERSION }}).
 
             Bundled: YTMNGTweaks, Return YouTube Dislike (fork), YouGroupSettings,
             Liquid Glass patch.
